@@ -9,10 +9,6 @@ until pg_isready -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER; do
 done
 echo "PostgreSQL está pronto!"
 
-# Executar migrações do banco de dados
-echo "Executando migrações do banco de dados..."
-npx prisma migrate deploy
-
 # Iniciar a aplicação
 echo "Iniciando Cal.com..."
 exec yarn start 
