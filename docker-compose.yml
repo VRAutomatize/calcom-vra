@@ -1,0 +1,119 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /letsencrypt \
+          && touch /letsencrypt/acme.json \
+          && chmod 600 /letsencrypt/acme.json \
+          && exec traefik "$@"
+    command:
+      - "--api.insecure=false"
+      - "--api.dashboard=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
+    networks:
+      - calcom-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: calcom_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - calcom-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  calcom:
+    image: calcom/cal.com:latest
+    container_name: calcom_app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && yarn start"
+    environment:
+      VERCEL_URL: ${NEXT_PUBLIC_URL}
+      NEXT_PUBLIC_URL: ${NEXT_PUBLIC_URL}
+      BUILT_NEXT_PUBLIC_WEBAPP_URL: ${NEXT_PUBLIC_URL}
+      NEXT_PUBLIC_WEBAPP_URL: ${NEXT_PUBLIC_URL}
+      BASE_URL: ${NEXT_PUBLIC_URL}
+      NEXTAUTH_URL: ${NEXT_PUBLIC_URL}
+      NEXT_PUBLIC_CONSOLE_URL: ${NEXT_PUBLIC_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_URL}
+      NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_URL}
+      WEB_APP: ${NEXT_PUBLIC_URL}
+      
+      # Google Calendar / Meet
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      NEXT_PUBLIC_GOOGLE_API_REDIRECT_URI: ${NEXT_PUBLIC_GOOGLE_API_REDIRECT_URI}
+      
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      
+      # Secrets
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY}
+      
+      # Email
+      EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_SERVER_HOST: ${EMAIL_SERVER_HOST}
+      EMAIL_SERVER_PORT: ${EMAIL_SERVER_PORT}
+      EMAIL_SERVER_USER: ${EMAIL_SERVER_USER}
+      EMAIL_SERVER_PASSWORD: ${EMAIL_SERVER_PASSWORD}
+      
+      # Disable public signup
+      NEXT_PUBLIC_DISABLE_SIGNUP: "true"
+    expose:
+      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.calcom-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.calcom-http.entrypoints=web"
+      - "traefik.http.routers.calcom-http.middlewares=redirect-to-https@docker"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.calcom-https.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.calcom-https.entrypoints=websecure"
+      - "traefik.http.routers.calcom-https.tls.certresolver=le"
+      - "traefik.http.services.calcom.loadbalancer.server.port=3000"
+    networks:
+      - calcom-network
+
+networks:
+  calcom-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local 

@@ -1,0 +1,25 @@
+# Environment variables
+.env
+
+# SSL certificates
+letsencrypt/
+
+# Database backups
+*.sql
+*.dump
+
+# Logs
+*.log
+
+# Docker volumes
+postgres_data/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db 
