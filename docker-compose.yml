@@ -60,8 +60,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npx prisma migrate deploy && yarn start"
     environment:
+      # URLs
       VERCEL_URL: ${NEXT_PUBLIC_URL}
       NEXT_PUBLIC_URL: ${NEXT_PUBLIC_URL}
       BUILT_NEXT_PUBLIC_WEBAPP_URL: ${NEXT_PUBLIC_URL}
@@ -95,6 +95,11 @@ services:
       
       # Disable public signup
       NEXT_PUBLIC_DISABLE_SIGNUP: "true"
+      
+      # Environment
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      TZ: America/Sao_Paulo
     expose:
       - "3000"
     labels:
