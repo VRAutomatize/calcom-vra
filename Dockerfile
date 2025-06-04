@@ -6,7 +6,11 @@ RUN apk add --no-cache \
     postgresql-client \
     python3 \
     make \
-    g++
+    g++ \
+    curl
+
+# Instalar Yarn de forma mais robusta
+RUN curl -o- -L https://yarnpkg.com/install.sh | sh
 
 # Criar diretório da aplicação
 WORKDIR /app
@@ -15,8 +19,7 @@ WORKDIR /app
 COPY . .
 
 # Instalar dependências e buildar
-RUN npm install -g yarn
-RUN yarn install
+RUN yarn install --frozen-lockfile
 RUN yarn build
 
 # Estágio final
@@ -27,7 +30,11 @@ RUN apk add --no-cache \
     postgresql-client \
     python3 \
     make \
-    g++
+    g++ \
+    curl
+
+# Instalar Yarn de forma mais robusta
+RUN curl -o- -L https://yarnpkg.com/install.sh | sh
 
 WORKDIR /app
 
